@@ -1,6 +1,12 @@
 import streamlit as st
-from langchain_ollama import OllamaLLM
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_groq import ChatGroq
+from langchain.prompts import ChatPromptTemplate
+from langchain.chains import LLMChain
+from dotenv import load_dotenv
+import os
+
+# Load environment variables
+load_dotenv()
 
 # Set up the chatbot
 template = """
@@ -12,9 +18,14 @@ Question: {question}
 Answer:
 """
 
-model = OllamaLLM(model="llama3")
+# Initialize Groq LLM
+llm = ChatGroq(
+    groq_api_key=os.getenv("GROQ_API_KEY"),
+    model_name="mixtral-8x7b-32768"
+)
+
 prompt = ChatPromptTemplate.from_template(template)
-chain = prompt | model
+chain = LLMChain(llm=llm, prompt=prompt)
 
 def initialize_session_state():
     if 'context' not in st.session_state:
@@ -47,7 +58,7 @@ def handle_conversation():
             st.markdown(prompt)
         
         with st.chat_message("assistant"):
-            result = chain.invoke({"context": st.session_state.context, "question": prompt})
+            result = chain.run(context=st.session_state.context, question=prompt)
             st.markdown(result)
         
         st.session_state.messages.append({"role": "assistant", "content": result})
