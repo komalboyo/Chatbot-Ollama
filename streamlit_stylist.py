@@ -12,7 +12,7 @@ load_dotenv()
 
 # Initialize Groq LLM
 llm = ChatGroq(
-    groq_api_key=os.getenv("GROQ_API_KEY2"),
+    groq_api_key=os.getenv("GROQ_API_KEY"),
     model_name="llama-3.2-11b-vision-preview"
 )
 
@@ -39,8 +39,14 @@ def get_styling_advice(image):
         ])
     ]
     
-    response = llm.invoke(messages)
-    return response.content
+    try:
+        response = llm.invoke(messages)
+        return response.content, False
+    except Exception as e:
+        if "rate limit" in str(e).lower():
+            return "Rate limit exceeded. Please subscribe for more requests.", True
+        else:
+            return f"An error occurred: {str(e)}", False
 
 def main():
     st.set_page_config(page_title="Fashion Stylist AI", page_icon="👔", layout="wide")
@@ -48,17 +54,25 @@ def main():
     st.title("👔 Fashion Stylist AI")
     st.subheader("Upload an image of a clothing item for styling advice!")
 
+    if 'rate_limited' not in st.session_state:
+        st.session_state.rate_limited = False
+
     uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
     
     if uploaded_file is not None:
         image = Image.open(uploaded_file)
         st.image(image, caption="Uploaded Image", use_column_width=True)
         
-        if st.button("Get Styling Advice"):
+        if st.button("Get Styling Advice", disabled=st.session_state.rate_limited):
             with st.spinner("Analyzing your fashion item..."):
-                advice = get_styling_advice(image)
+                advice, rate_limited = get_styling_advice(image)
             st.markdown("## Styling Advice")
             st.write(advice)
+            
+            if rate_limited:
+                st.session_state.rate_limited = True
+                st.error("You've reached the request limit. Subscribe for more!")
+                st.button("Subscribe Now", type="primary")
 
 if __name__ == "__main__":
     main()
